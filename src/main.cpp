@@ -17,12 +17,16 @@ ili9844: подключение VSPI и задать прочие пины по 
 #include <lvgl.h>
 #include <indev/XPT2046.h>
 
-#include <lv_examples.h>
+#include "lv_demo.h"
 
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 
-static lv_disp_buf_t disp_buf;
-static lv_color_t buf[LV_HOR_RES_MAX * 10];
+#define DISP_HOR_RES TFT_WIDTH
+#define DISP_VER_RES TFT_HEIGHT
+#define MY_DISP_HOR_RES TFT_WIDTH
+#define MY_DISP_VER_RES TFT_HEIGHT
+static lv_disp_draw_buf_t draw_buf;
+static lv_color_t buf1[DISP_HOR_RES * DISP_VER_RES / 10];                        /*Declare a buffer for 1/10 screen size*/
 
 #if USE_LV_LOG != 0
 /* Serial debugging */
@@ -33,14 +37,18 @@ void my_print(lv_log_level_t level, const char * file, uint32_t line, const char
 }
 #endif
 
-static void btn_event_cb(lv_obj_t * btn, lv_event_t event)
+static void btn_event_cb(lv_event_t * e)
 {
-	if(event == LV_EVENT_CLICKED) {
+	lv_event_code_t code = lv_event_get_code(e);
+
+	if(code == LV_EVENT_CLICKED) {
+		//LV_LOG_USER("Clicked");
 		static uint8_t cnt = 0;
 		cnt++;
 
 		/*Get the first child of the button which is the label and change its text*/
-		lv_obj_t * label = lv_obj_get_child(btn, NULL);
+		lv_obj_t * btn = lv_event_get_target(e);
+		lv_obj_t * label = lv_obj_get_child(btn, 0);
 		lv_label_set_text_fmt(label, "Button: %d", cnt);
 	}
 }
@@ -48,17 +56,17 @@ void my_demo()
 {
 
 	/* Create simple label */
-	lv_obj_t *label = lv_label_create(lv_scr_act(), NULL);
-	lv_label_set_text(label, "Hello Arduino! (V7.0.X)");
-	lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
+	lv_obj_t *label = lv_label_create(lv_scr_act());
+	lv_label_set_text(label, "Hello Arduino!");
+	lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 
 
-	lv_obj_t * btn = lv_btn_create(lv_scr_act(), NULL);     /*Add a button the current screen*/
+	lv_obj_t * btn = lv_btn_create(lv_scr_act());     /*Add a button the current screen*/
 	lv_obj_set_pos(btn, 10, 10);                            /*Set its position*/
 	lv_obj_set_size(btn, 120, 50);                          /*Set its size*/
-	lv_obj_set_event_cb(btn, btn_event_cb);                 /*Assign a callback to the button*/
+	lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_CLICKED, NULL);
 
-	lv_obj_t * label2 = lv_label_create(btn, NULL);          /*Add a label to the button*/
+	lv_obj_t * label2 = lv_label_create(btn);          /*Add a label to the button*/
 	lv_label_set_text(label2, "Button");                     /*Set the labels text*/
 
 }
@@ -78,16 +86,16 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
 }
 
 /*Read the touchpad*/
-bool my_touchpad_read(lv_indev_drv_t * indev_driver, lv_indev_data_t * data)
+void my_touchpad_read(lv_indev_drv_t * indev, lv_indev_data_t * data)
 {
 	uint16_t touchX, touchY;
 
 	bool touched = tft.getTouch(&touchX, &touchY, 600);
 
 	if(!touched) {
-	  data->state = LV_INDEV_STATE_REL;
+	  data->state = LV_INDEV_STATE_RELEASED;
 	} else {
-	  data->state = LV_INDEV_STATE_PR;
+	  data->state = LV_INDEV_STATE_PRESSED;
 
 	  /*Set the coordinates*/
 	  data->point.x = touchX;
@@ -99,8 +107,6 @@ bool my_touchpad_read(lv_indev_drv_t * indev_driver, lv_indev_data_t * data)
 	  Serial.print("Data y");
 	  Serial.println(touchY);
 	}
-
-	return false; /*Return `false` because we are not buffering and no more data to read*/
 }
 
 void setup()
@@ -131,27 +137,26 @@ for (uint8_t i = 0; i < 5; i++)
 */
 	tft.setTouch(calData);
 
-	lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
+	// Create a draw buffer: LVGL will render the graphics here first, and send the rendered image to the display. The buffer size can be set freely but 1/10 screen size is a good starting point.
+	lv_disp_draw_buf_init(&draw_buf, buf1, NULL, MY_DISP_HOR_RES * MY_DISP_VER_RES / 10);  /*Initialize the display buffer.*/
 
-	/*Initialize the display*/
-	lv_disp_drv_t disp_drv;
-	lv_disp_drv_init(&disp_drv);
-	disp_drv.hor_res = TFT_HEIGHT;
-	disp_drv.ver_res = TFT_WIDTH;
-	disp_drv.flush_cb = my_disp_flush;
-	disp_drv.buffer = &disp_buf;
-	lv_disp_drv_register(&disp_drv);
+	// Implement and register a function which can copy the rendered image to an area of your display:
+	static lv_disp_drv_t disp_drv;        /*Descriptor of a display driver*/
+	lv_disp_drv_init(&disp_drv);          /*Basic initialization*/
+	disp_drv.flush_cb = my_disp_flush;    /*Set your driver function*/
+	disp_drv.draw_buf = &draw_buf;        /*Assign the buffer to the display*/
+	disp_drv.hor_res = MY_DISP_HOR_RES;   /*Set the horizontal resolution of the display*/
+	disp_drv.ver_res = MY_DISP_VER_RES;   /*Set the vertical resolution of the display*/
+	lv_disp_drv_register(&disp_drv);      /*Finally register the driver*/
 
-	/*Initialize the (dummy) input device driver*/
-	lv_indev_drv_t indev_drv;
-	lv_indev_drv_init(&indev_drv);
-	indev_drv.type = LV_INDEV_TYPE_POINTER;
-	indev_drv.read_cb = my_touchpad_read;
-	lv_indev_drv_register(&indev_drv);
+	// Implement and register a function which can read an input device. E.g. for a touchpad:
+	static lv_indev_drv_t indev_drv;           /*Descriptor of a input device driver*/
+	lv_indev_drv_init(&indev_drv);             /*Basic initialization*/
+	indev_drv.type = LV_INDEV_TYPE_POINTER;    /*Touch pad is a pointer-like device*/
+	indev_drv.read_cb = my_touchpad_read;      /*Set your driver function*/
+	lv_indev_drv_register(&indev_drv);         /*Finally register the driver*/
 
 
-	// Try an example from the lv_examples repository
-	// https://github.com/lvgl/lv_examples*/
 	lv_demo_widgets();
 	// or
 	//my_demo();
