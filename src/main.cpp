@@ -21,10 +21,10 @@ ili9844: подключение VSPI и задать прочие пины по 
 
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 
-#define DISP_HOR_RES TFT_WIDTH
-#define DISP_VER_RES TFT_HEIGHT
-#define MY_DISP_HOR_RES TFT_WIDTH
-#define MY_DISP_VER_RES TFT_HEIGHT
+#define DISP_HOR_RES TFT_HEIGHT
+#define DISP_VER_RES TFT_WIDTH
+#define MY_DISP_HOR_RES TFT_HEIGHT
+#define MY_DISP_VER_RES TFT_WIDTH
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf1[DISP_HOR_RES * DISP_VER_RES / 10];                        /*Declare a buffer for 1/10 screen size*/
 
@@ -113,6 +113,8 @@ void setup()
 {
 	Serial.begin(115200); /* prepare for possible serial debug */
 
+	Serial.println("serial...");
+
 	lv_init();
 
 #if USE_LV_LOG != 0
@@ -157,9 +159,10 @@ for (uint8_t i = 0; i < 5; i++)
 	lv_indev_drv_register(&indev_drv);         /*Finally register the driver*/
 
 
-	lv_demo_widgets();
+	// FIXME исправить стандарные примеры
+	//lv_demo_widgets();
 	// or
-	//my_demo();
+	my_demo();
 
 
 }
