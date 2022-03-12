@@ -7,6 +7,8 @@
 
 #include "lv_demo.h"
 
+// пример инициализации для Arduino: lvgl/examples/arduino/LVGL_Arduino
+
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 
 #define DISP_HOR_RES TFT_HEIGHT
@@ -14,6 +16,7 @@ TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 #define MY_DISP_HOR_RES TFT_HEIGHT
 #define MY_DISP_VER_RES TFT_WIDTH
 static lv_disp_draw_buf_t draw_buf;
+//static lv_color_t buf1[ DISP_HOR_RES * 10 ];
 static lv_color_t buf1[DISP_HOR_RES * DISP_VER_RES / 10];                        /*Declare a buffer for 1/10 screen size*/
 
 #if USE_LV_LOG != 0
@@ -45,7 +48,7 @@ void my_demo()
 
 	/* Create simple label */
 	lv_obj_t *label = lv_label_create(lv_scr_act());
-	lv_label_set_text(label, "Hello Arduino!");
+	lv_label_set_text_fmt(label, "Hello Arduino! V%d.%d.%d%s", lv_version_major(), lv_version_minor(), lv_version_patch(), lv_version_info());
 	lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 
 
@@ -147,7 +150,7 @@ for (uint8_t i = 0; i < 5; i++)
 	lv_indev_drv_register(&indev_drv);         /*Finally register the driver*/
 
 
-	// FIXME исправить стандарные примеры
+	// FIXME исправить стандарные примеры (см. папку demos в репозитории lvgl)
 	//lv_demo_widgets();
 	// or
 	my_demo();
